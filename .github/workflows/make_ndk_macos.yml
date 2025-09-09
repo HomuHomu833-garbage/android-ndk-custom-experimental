@@ -154,6 +154,7 @@ jobs:
           cd $HOME
           # Python
           curl -LkSs https://www.python.org/ftp/python/3.11.4/Python-3.11.4.tar.xz | xz -d | tar -x
+          cp ${{github.workspace}}/patches/bsd/python/configure $(pwd)/configure
           mv Python-3.11.4 python
           cd python
           mkdir build
