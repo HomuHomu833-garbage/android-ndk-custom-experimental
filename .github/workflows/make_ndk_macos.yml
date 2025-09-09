@@ -108,6 +108,7 @@ jobs:
           # SPIRV-Tools and shaderc
           mkdir -p "$HOME/shaderc"
           cd "$HOME/shaderc"
+          sed -i '/^[[:space:]]*elseif(APPLE)/,/^[[:space:]]*else()/ { /^[[:space:]]*else()/!d }' cmake/utils.cmake
           curl -LkSs "https://android.googlesource.com/platform/external/shaderc/shaderc/+archive/$SHADERC_HASH.tar.gz" | tar -xz
           cd "$HOME/shaderc/third_party"
           mkdir -p spirv-tools
