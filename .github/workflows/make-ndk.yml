@@ -74,7 +74,7 @@ jobs:
 
       - name: Make NDK
         run: |
-          IMAGE="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/ndk-builder:latest"
+          IMAGE="ghcr.io/homuhomu833/ndk-builder:latest"
           docker run --rm \
             -v "/mnt/build:/work" -w /work --user "$(id -u):$(id -g)" \
             -e HOME=/work \
@@ -83,7 +83,7 @@ jobs:
             -e NDK_VERSION='${{ inputs.version }}' \
             -e NDK_REVISION='${{ inputs.revision }}' \
             -e ROOTDIR=/work \
-            -e REPO_OWNER='${{ github.repository_owner }}' \
+            -e REPO_OWNER='HomuHomu833' \
             "$IMAGE" \
             bash -c 'scripts/make-ndk.sh'
 
