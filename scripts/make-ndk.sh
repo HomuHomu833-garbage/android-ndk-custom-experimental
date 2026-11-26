@@ -1510,7 +1510,7 @@ host_tag_arch() {
   else
     case "$arch" in
       aarch64)         arch=arm64 ;;
-      aarch64_be)      arch=arm64_be ;;
+      aarch64_be|aarch64be) arch=arm64_be ;;
       loongarch64)     arch=loong64 ;;
       powerpc64le)     arch=ppc64le ;;
       powerpc64)       arch=ppc64 ;;
