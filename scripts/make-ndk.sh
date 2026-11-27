@@ -963,6 +963,9 @@ EOF
     if [ "$SYSTEM_NAME" = OpenBSD ]; then
       printf 'ac_cv_func_memrchr=no\nac_cv_func_sendfile=no\nac_cv_func_getrandom=no\nac_cv_func_posix_fadvise=no\nac_cv_func_posix_fallocate=no\n' >> config.site
     fi
+    # FreeBSD: openpty/forkpty live in libutil, whose soname moves between
+    # releases (.so.9 on 14, .so.10 on 15); host tools do not need ptys.
+    [ "$SYSTEM_NAME" = FreeBSD ] && printf "ac_cv_func_openpty=no\nac_cv_func_forkpty=no\nac_cv_lib_util_openpty=no\nac_cv_lib_util_forkpty=no\n" >> config.site
     # NetBSD: memfd_create is Linux-only, and dup3 is exported as __dup3100 which
     # zig's libc stubs lack; both break the interpreter link. Use the fallbacks.
     if [ "$SYSTEM_NAME" = NetBSD ]; then
@@ -1190,6 +1193,7 @@ build_python2() {
     done
     cp "$ROOT/config/config.sub" "$ROOT/config/config.guess" "$PWD/"
     printf 'ac_cv_file__dev_ptmx=no\nac_cv_file__dev_ptc=no\nac_cv_buggy_getaddrinfo=no\n' > config.site
+    [ "${SYSTEM_NAME:-}" = FreeBSD ] && printf "ac_cv_func_openpty=no\nac_cv_func_forkpty=no\nac_cv_lib_util_openpty=no\nac_cv_lib_util_forkpty=no\n" >> config.site
     # static interpreters (musl, bionic) cannot load extension .so: build the
     # stdlib modules in via Setup.local (setup.py then skips them).
     local force_static_modules=no
