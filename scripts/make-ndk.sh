@@ -1572,12 +1572,10 @@ rename_host() {
     ( cd "$NDK/prebuilt" && ln -s "$tag" "$link" )
     ( cd "$NDK/shader-tools" && ln -s "$tag" "$link" )
   fi
-  # init.mk builds BSD paths as <os>-x86_64 whatever the CPU
-  if [ "$PLATFORM" = bsd ] && [ "${tag%-*}-x86_64" != "$tag" ]; then
-    for g in "$NDK/toolchains/llvm/prebuilt" "$NDK/prebuilt" "$NDK/shader-tools"; do
-      ( cd "$g" && ln -s "$tag" "${tag%-*}-x86_64" )
-    done
-  fi
+  # init.mk guesses <os>-x86_64 for every host; each NDK ships one, so name it
+  sed -i "s|^HOST_TAG64 := .*|HOST_TAG64 := $tag|" "$NDK/build/core/init.mk"
+  grep -q "^HOST_TAG64 := $tag\$" "$NDK/build/core/init.mk" \
+    || { echo "init.mk: HOST_TAG64 not patched" >&2; exit 1; }
   local f
   for f in "$NDK/ndk-stack" "$NDK/ndk-which"; do
     sed -i "s|linux-x86_64|$tag|g" "$f"
