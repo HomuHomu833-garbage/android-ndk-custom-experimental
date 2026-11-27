@@ -980,6 +980,8 @@ EOF
     force_static_modules=no
     [ "$PLATFORM" = bionic ] && force_static_modules=yes
     case "$TARGET" in *musl*) [ "$PLATFORM" = linux ] && force_static_modules=yes ;; esac
+    # sparc64: zig's own linker (lld cannot link it) emits extension .so files that crash on dlopen
+    case "$TARGET" in sparc64-*) force_static_modules=yes ;; esac
     if [ "$force_static_modules" = yes ]; then
       sed -i '/^case \$host_cpu in #(/,/^esac$/c\
 MODULE_BUILDTYPE=static
@@ -1199,6 +1201,8 @@ build_python2() {
     local force_static_modules=no
     [ "$PLATFORM" = bionic ] && force_static_modules=yes
     case "$TARGET" in *musl*) [ "$PLATFORM" = linux ] && force_static_modules=yes ;; esac
+    # sparc64: zig's own linker (lld cannot link it) emits extension .so files that crash on dlopen
+    case "$TARGET" in sparc64-*) force_static_modules=yes ;; esac
     if [ "$force_static_modules" = yes ]; then
       {
         echo '*static*'
