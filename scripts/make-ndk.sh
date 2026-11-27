@@ -530,6 +530,8 @@ build_binutils() {
   for p in "$ROOT"/patches/binutils/*.patch; do
     patch -d "$src" -Np1 -s -i "$p" || { echo "binutils: $(basename "$p") did not apply" >&2; exit 1; }
   done
+  # NetBSD's <strings.h> declares popcount(); bfd's own static one clashes.
+  grep -rlE '^(static[^;]*)?popcount *\(' "$src" --include='*.c' | xargs -r sed -i -E 's/\bpopcount *\(/binutils_popcount (/g'
   # one timestamp for the whole tree, or make sees its generated parsers and
   # docs as stale and wants bison and makeinfo
   find "$src" -exec touch -h -d '2016-08-03 00:00:00' {} +
@@ -1300,8 +1302,10 @@ install_python2() {
   local b="$BUILD/python2/build" lib="$PREBUILT_BIN/../lib" exe="" n
   [ -d "$b/lib/python2.7" ] || return 0
   [ "$PLATFORM" = windows ] && exe=.exe
-  for n in python python2 python2.7; do cp "$b/bin/python2.7$exe" "$PREBUILT_BIN/$n$exe"; done
-  [ "$PLATFORM" = windows ] && cp "$b/bin/libpython2.7.dll" "$PREBUILT_BIN/"
+  # the official prebuilt ships these read-only
+  chmod -R u+w "$PREBUILT_BIN"
+  for n in python python2 python2.7; do cp -f "$b/bin/python2.7$exe" "$PREBUILT_BIN/$n$exe"; done
+  [ "$PLATFORM" = windows ] && cp -f "$b/bin/libpython2.7.dll" "$PREBUILT_BIN/"
   rm -rf "$lib/python2.7"; mkdir -p "$lib"
   cp -R "$b/lib/python2.7" "$lib/"
   rm -rf "$lib/python2.7"/{test,config,bsddb/test,ctypes/test,distutils/tests,email/test,json/tests,lib-tk/test,lib2to3/tests,sqlite3/test,unittest/test}
