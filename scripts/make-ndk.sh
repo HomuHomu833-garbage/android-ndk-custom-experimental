@@ -1227,6 +1227,7 @@ build_python2() {
       } > Modules/Setup.local
       sed -i -e '/^cmath /s/ _math\.c//' -e 's/-DXML_POOR_ENTROPY=1/-DXML_POOR_ENTROPY/' Modules/Setup.local
       [ "$PLATFORM" = linux ] && sed -i '/^crypt /s/#[[:space:]]*-lcrypt/-lcrypt/' Modules/Setup.local
+      case "$PLATFORM" in linux|bionic) ;; *) sed -i '/^spwd /d' Modules/Setup.local ;; esac
       if [ "$PLATFORM" = bionic ]; then
         sed -i '/^spwd /d; /^crypt /d' Modules/Setup.local
         # r21 and older: ftime links but sys/timeb.h is gone.
