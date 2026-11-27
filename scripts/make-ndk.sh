@@ -587,6 +587,18 @@ replace_triple_binutils() {
   done
 }
 
+# r20/r21 still ship toolchains/<triple>-4.9 with x86_64 binutils: give them ours.
+replace_gcc_binutils() {
+  local out="$BUILD/binutils/out/toolchain" d f rel
+  for d in "$NDK"/toolchains/*-4.9/prebuilt/*; do
+    [ -d "$d" ] || continue
+    find "$d/bin" "$d"/*-linux-android*/bin -maxdepth 1 -type f 2>/dev/null | while IFS= read -r f; do
+      rel="${f#"$d"/}"
+      if [ -f "$out/$rel" ]; then cp "$out/$rel" "$f"; else echo "Removing ${f#"$NDK"/}"; rm -f "$f"; fi
+    done
+  done
+}
+
 # --- SPIRV-Tools + shaderc --------------------------------------------------
 build_shaderc() {
   log "Building shaderc"
@@ -1379,6 +1391,7 @@ assemble_unix() {
   # copy compiled binaries
   replace_toolchain_libs
   replace_triple_binutils
+  replace_gcc_binutils
   cp "$BUILD/make/build/bin/make" "$PREBUILT_BIN"
   cp "$BUILD/yasm/build/bin/yasm" "$PREBUILT_BIN"
   cp "$BUILD/yasm/build/bin/yasm" "$NDK_TOOLCHAIN/bin"
@@ -1548,6 +1561,11 @@ rename_host() {
   mv "$NDK/prebuilt/linux-x86_64" "$NDK/prebuilt/$tag"
   mv "$NDK/toolchains/llvm/prebuilt/linux-x86_64" "$NDK/toolchains/llvm/prebuilt/$tag"
   mv "$NDK/shader-tools/linux-x86_64" "$NDK/shader-tools/$tag"
+  local g
+  for g in "$NDK"/toolchains/*-4.9/prebuilt/linux-x86_64; do
+    [ -d "$g" ] || continue
+    mv "$g" "${g%/*}/$tag"; [ "$tag" != "$link" ] && ln -s "$tag" "$g"
+  done
   # only add the fallback symlink when the real dir isn't already that tag
   if [ "$tag" != "$link" ]; then
     ( cd "$NDK/toolchains/llvm/prebuilt" && ln -s "$tag" "$link" )
@@ -1767,6 +1785,7 @@ HOST_ARCH=x86_64' "$(ndk_host_sh)"
   # copy compiled binaries
   replace_toolchain_libs
   replace_triple_binutils
+  replace_gcc_binutils
   cp "$BUILD/make/build/bin/make.exe" "$PREBUILT_BIN"
   cp "$BUILD/yasm/build/bin/yasm.exe" "$PREBUILT_BIN"
   cp "$BUILD/yasm/build/bin/yasm.exe" "$NDK_TOOLCHAIN/bin"
