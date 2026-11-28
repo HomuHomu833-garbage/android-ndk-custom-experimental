@@ -587,6 +587,18 @@ replace_triple_binutils() {
   done
 }
 
+# r20/r21 still ship toolchains/<triple>-4.9 with x86_64 binutils: give them ours.
+replace_gcc_binutils() {
+  local out="$BUILD/binutils/out/toolchain" d f rel
+  for d in "$NDK"/toolchains/*-4.9/prebuilt/*; do
+    [ -d "$d" ] || continue
+    find "$d/bin" "$d"/*-linux-android*/bin -maxdepth 1 -type f 2>/dev/null | while IFS= read -r f; do
+      rel="${f#"$d"/}"
+      if [ -f "$out/$rel" ]; then cp "$out/$rel" "$f"; else echo "Removing ${f#"$NDK"/}"; rm -f "$f"; fi
+    done
+  done
+}
+
 # --- SPIRV-Tools + shaderc --------------------------------------------------
 build_shaderc() {
   log "Building shaderc"
@@ -951,6 +963,9 @@ EOF
     if [ "$SYSTEM_NAME" = OpenBSD ]; then
       printf 'ac_cv_func_memrchr=no\nac_cv_func_sendfile=no\nac_cv_func_getrandom=no\nac_cv_func_posix_fadvise=no\nac_cv_func_posix_fallocate=no\n' >> config.site
     fi
+    # FreeBSD: openpty/forkpty live in libutil, whose soname moves between
+    # releases (.so.9 on 14, .so.10 on 15); host tools do not need ptys.
+    [ "$SYSTEM_NAME" = FreeBSD ] && printf "ac_cv_func_openpty=no\nac_cv_func_forkpty=no\nac_cv_lib_util_openpty=no\nac_cv_lib_util_forkpty=no\n" >> config.site
     # NetBSD: memfd_create is Linux-only, and dup3 is exported as __dup3100 which
     # zig's libc stubs lack; both break the interpreter link. Use the fallbacks.
     if [ "$SYSTEM_NAME" = NetBSD ]; then
@@ -965,6 +980,8 @@ EOF
     force_static_modules=no
     [ "$PLATFORM" = bionic ] && force_static_modules=yes
     case "$TARGET" in *musl*) [ "$PLATFORM" = linux ] && force_static_modules=yes ;; esac
+    # sparc64: zig's own linker (lld cannot link it) emits extension .so files that crash on dlopen
+    case "$TARGET" in sparc64-*) force_static_modules=yes ;; esac
     if [ "$force_static_modules" = yes ]; then
       sed -i '/^case \$host_cpu in #(/,/^esac$/c\
 MODULE_BUILDTYPE=static
@@ -1178,11 +1195,14 @@ build_python2() {
     done
     cp "$ROOT/config/config.sub" "$ROOT/config/config.guess" "$PWD/"
     printf 'ac_cv_file__dev_ptmx=no\nac_cv_file__dev_ptc=no\nac_cv_buggy_getaddrinfo=no\n' > config.site
+    [ "${SYSTEM_NAME:-}" = FreeBSD ] && printf "ac_cv_func_openpty=no\nac_cv_func_forkpty=no\nac_cv_lib_util_openpty=no\nac_cv_lib_util_forkpty=no\n" >> config.site
     # static interpreters (musl, bionic) cannot load extension .so: build the
     # stdlib modules in via Setup.local (setup.py then skips them).
     local force_static_modules=no
     [ "$PLATFORM" = bionic ] && force_static_modules=yes
     case "$TARGET" in *musl*) [ "$PLATFORM" = linux ] && force_static_modules=yes ;; esac
+    # sparc64: zig's own linker (lld cannot link it) emits extension .so files that crash on dlopen
+    case "$TARGET" in sparc64-*) force_static_modules=yes ;; esac
     if [ "$force_static_modules" = yes ]; then
       {
         echo '*static*'
@@ -1206,6 +1226,8 @@ build_python2() {
         fi
       } > Modules/Setup.local
       sed -i -e '/^cmath /s/ _math\.c//' -e 's/-DXML_POOR_ENTROPY=1/-DXML_POOR_ENTROPY/' Modules/Setup.local
+      [ "$PLATFORM" = linux ] && sed -i '/^crypt /s/#[[:space:]]*-lcrypt/-lcrypt/' Modules/Setup.local
+      case "$PLATFORM" in linux|bionic) ;; *) sed -i '/^spwd /d' Modules/Setup.local ;; esac
       if [ "$PLATFORM" = bionic ]; then
         sed -i '/^spwd /d; /^crypt /d' Modules/Setup.local
         # r21 and older: ftime links but sys/timeb.h is gone.
@@ -1379,6 +1401,7 @@ assemble_unix() {
   # copy compiled binaries
   replace_toolchain_libs
   replace_triple_binutils
+  replace_gcc_binutils
   cp "$BUILD/make/build/bin/make" "$PREBUILT_BIN"
   cp "$BUILD/yasm/build/bin/yasm" "$PREBUILT_BIN"
   cp "$BUILD/yasm/build/bin/yasm" "$NDK_TOOLCHAIN/bin"
@@ -1548,12 +1571,21 @@ rename_host() {
   mv "$NDK/prebuilt/linux-x86_64" "$NDK/prebuilt/$tag"
   mv "$NDK/toolchains/llvm/prebuilt/linux-x86_64" "$NDK/toolchains/llvm/prebuilt/$tag"
   mv "$NDK/shader-tools/linux-x86_64" "$NDK/shader-tools/$tag"
+  local g
+  for g in "$NDK"/toolchains/*-4.9/prebuilt/linux-x86_64; do
+    [ -d "$g" ] || continue
+    mv "$g" "${g%/*}/$tag"; [ "$tag" != "$link" ] && ln -s "$tag" "$g"
+  done
   # only add the fallback symlink when the real dir isn't already that tag
   if [ "$tag" != "$link" ]; then
     ( cd "$NDK/toolchains/llvm/prebuilt" && ln -s "$tag" "$link" )
     ( cd "$NDK/prebuilt" && ln -s "$tag" "$link" )
     ( cd "$NDK/shader-tools" && ln -s "$tag" "$link" )
   fi
+  # init.mk guesses <os>-x86_64 for every host; each NDK ships one, so name it
+  sed -i "s|^HOST_TAG64 := .*|HOST_TAG64 := $tag|" "$NDK/build/core/init.mk"
+  grep -q "^HOST_TAG64 := $tag\$" "$NDK/build/core/init.mk" \
+    || { echo "init.mk: HOST_TAG64 not patched" >&2; exit 1; }
   local f
   for f in "$NDK/ndk-stack" "$NDK/ndk-which"; do
     sed -i "s|linux-x86_64|$tag|g" "$f"
@@ -1767,6 +1799,7 @@ HOST_ARCH=x86_64' "$(ndk_host_sh)"
   # copy compiled binaries
   replace_toolchain_libs
   replace_triple_binutils
+  replace_gcc_binutils
   cp "$BUILD/make/build/bin/make.exe" "$PREBUILT_BIN"
   cp "$BUILD/yasm/build/bin/yasm.exe" "$PREBUILT_BIN"
   cp "$BUILD/yasm/build/bin/yasm.exe" "$NDK_TOOLCHAIN/bin"

@@ -59,7 +59,9 @@ END_OF_FILE
 
 get_build_var_for_abi() {
   if [ -z "$GNUMAKE" ]; then
-    GNUMAKE=make
+    # the bundled GNU make; a BSD host's own make is not one
+    GNUMAKE=`dirname "$0"`/make
+    [ -x "$GNUMAKE" ] || GNUMAKE=make
   fi
   NDK_PROJECT_PATH="$TMPDIR" "$GNUMAKE" --no-print-dir -f "$MYNDKDIR/build/core/build-local.mk" DUMP_"$1" APP_ABI="$2"
 }

@@ -72,7 +72,7 @@ RUN arch="$(uname -m)"; \
     esac; \
     if [ ! -f /opt/.no-zig ]; then \
         case "$ZIG_VERSION" in \
-            *dev*) zig_base="https://ziglang.org/builds" ;;        \
+            *dev*) zig_base="https://pkg.machengine.org/zig/${ZIG_VERSION}" ;;        \
             *)     zig_base="https://ziglang.org/download/${ZIG_VERSION}" ;; \
         esac; \
         fetch --dir=/tmp -o zig.tar.xz \
