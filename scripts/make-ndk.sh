@@ -1226,7 +1226,7 @@ build_python2() {
         fi
       } > Modules/Setup.local
       sed -i -e '/^cmath /s/ _math\.c//' -e 's/-DXML_POOR_ENTROPY=1/-DXML_POOR_ENTROPY/' Modules/Setup.local
-      [ "$PLATFORM" = linux ] && sed -i '/^crypt /s/#[[:space:]]*-lcrypt/-lcrypt/' Modules/Setup.local
+      case "$PLATFORM-$TARGET" in linux-*musl*) ;; linux-*) sed -i '/^crypt /d' Modules/Setup.local ;; esac
       case "$PLATFORM" in linux|bionic) ;; *) sed -i '/^spwd /d' Modules/Setup.local ;; esac
       if [ "$PLATFORM" = bionic ]; then
         sed -i '/^spwd /d; /^crypt /d' Modules/Setup.local
